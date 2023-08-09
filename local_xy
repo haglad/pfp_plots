@@ -1,0 +1,167 @@
+#==============================================================================
+# Plotting the local X and Y coordinates
+#==============================================================================
+# Using the local XY coordinates collected in a plot, or found
+# from a shared dataset, this code can help you to :
+#1 visualise all the stems in a plot.
+#2 visualise species distributions within a plot.
+#3 Check the location of herbarium specimens within a plot. This may help in 
+# assessing the kind of habitat those specimens are in, for example, 
+# to ensure proper label data when plots are collected across a habitat interface
+
+################################################################################
+#                               *** TOP TIP ***
+################################################################################
+# if GPS points are available for the stems in the plot (all of the stems, 
+# a subset of stems, even just voucher specimens!) prior to plotting these stems in R, 
+# try to visualise these decimal degree points in a GIS software with the tree tag 
+# labels visible. This will enable you to double check the orientation of the 
+# plot. 
+################################################################################
+#==============================================================================
+#1 Visualise all the stems in a plot.
+#==============================================================================
+
+
+#For each plot you will need the following packages:
+
+#load in the necessary packages
+library(dplyr)
+library(ggplot2)
+library(ggrepel)
+library(tidyr)
+# My data is formatted as an .xlsx document due to author names with special characters, 
+# you may skip this following package if your dataset is in .csv format. 
+library(openxlsx) 
+
+
+# If you'd like to check out some special colours for your plot, try this package:
+library("RColorBrewer")
+# To view all the colours in the package
+display.brewer.all()
+
+##1. set the working directory
+setwd("C:/plot4")
+getwd()
+
+##2. reading in the data
+p4 <- read.xlsx("C:/plot4/NNN_04_Har2017_6_xyfixed.xlsx")
+
+##3. make sure any numerical values you are using are read in the proper format
+p4$measurementValue <- as.numeric(p4$measurementValue)
+p4$Height <- as.numeric(p4$Height)
+p4$height_est <- as.numeric(p4$height_est)
+
+
+##4. create a plot to visualise all the stems in your forest plot 
+
+p4_jpg <- ggplot(p4, aes(Xb, Yb)) + #change to your X Y column headers
+  geom_segment(aes(x = 0, y = 0, xend = 0, yend = 100), color = "blue") +       # Visualize the 1 hectare boundary, some trees may fall outside the lines
+    geom_segment(aes(x = 0, y = 0, xend = 0, yend = 100), color = "blue") +      
+  geom_segment(aes(x = 0, y = 100, xend = 100, yend = 100), color = "blue") +
+  geom_segment(aes(x = 100, y = 0, xend = 100, yend = 100), color = "blue") +
+  geom_segment(aes(x = 0, y = 0, xend = 100, yend = 0), color = "blue") +
+  geom_point(alpha = 0.25, aes(size = DBH4.7, #add your stems as points and modify the opacity & size -- I've used my DBH from the most recent census
+                               color = scientificName), col = "darkgreen") + #fill in your stems, I chose dark green
+  scale_size(range = c(2,10)) + # ratio of sizes for your geom points
+  scale_x_continuous(limits = c(-5,105), breaks = seq(0,100,20)) +   #Modify your inclusion criteria. Mine is larger than 100 x 100 to include all the trees surveyed
+  scale_y_continuous(limits = c(-5,105), breaks = seq(0,100,20)) +
+  theme(panel.grid.minor.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.background = element_rect(fill = "white", color = "black"),        # This is to make the background white with black lines
+        panel.grid.major = element_line(color = "black")) +
+  labs(title = "Stems in TEAM Plot 4",                                           # Add plot labels
+       x = "X (m)",
+       y = "Y (m)") + 
+  geom_text_repel(aes(label = catalogNumber), size = 2.5, max.overlaps =54 )     # Add your tag numbers. This code relies on the package "ggrepel" 
+#theme(panel.grid.major = element_line(colour = "grey"), panel.grid.minor = element_blank())
+
+print(p4_jpg)
+
+  #Note: if you are missing x and y values, you may receive warning messages that 
+  #geom_point and geom_text_repel values are missing.
+  #this is okay as long as you are aware you are missing that data. 
+  #if you were not previously aware, this maight be a good opportunity to see
+  #which tree tags are mising x's and y's.
+
+
+##5. Save your plot to a file. 
+#this function ggsave will actually save the plot into the new folder, with the appropriate dimensions
+#remember to set your own wd and file name, as well as the name of the plot image you are saving (plot = " ") I've left mine as an example. 
+ggsave("C:/plot4/entireplot4_2017.jpg", plot = p4_jpg, width = 12, height = 10, dpi = 300)  
+
+#==============================================================================
+
+## Now you can create the same plot, but to visualize each species individually!  
+
+##6. counting species
+species <-table(p4$scientificName)
+species <- as.data.frame(species)
+family <- table #if you want to see the distribution of families in the plot. you can do the same for genera to!
+
+##7.ordering species list in descending order so that this can be used in a loop
+# you might also use this list to visualize the number of species in your plot and their associated frequencies
+species <- species %>% arrange(desc(Freq), .by_group = TRUE)
+
+#if you'd like, you can save this list as a .csv file (optional, remove # to complete)
+#write.csv(species, "C:/wd/file_name.csv") #remember to replace with your own wd and file name 
+
+##8. create your loop!
+# the length is the the length of the list in the "species" df
+# the same would be true if you wanted to complete the loop using "genera" or family."
+# just remember to modify the code according to your naming convention system.
+for (i in 1:length(species$Var1)) {  
+  
+  species_name <- species$Var1[i]
+  
+  p4sp1 <- ggplot(p4, aes(Xb, Yb)) + #change to your X and Y column headers
+    geom_segment(aes(x = 0, y = 0, xend = 0, yend = 100), color = "blue") +      
+    geom_segment(aes(x = 0, y = 100, xend = 100, yend = 100), color = "blue") +  
+    geom_segment(aes(x = 100, y = 0, xend = 100, yend = 100), color = "blue") +  
+    geom_segment(aes(x = 0, y = 0, xend = 100, yend = 0), color = "blue") +      
+    geom_point(alpha = 0.50, aes(size = DBH4.7, #this dbh is from my file, remember to include your own DBH column header 
+                                 color = ifelse(scientificName != species_name, "red", "#A0A0A0"))) +  # this will loop for each species name starting from the first species in your "species"
+    scale_fill_manual(values = c("red", "#A0A0A0")) +                                                  # the species chosen will be red, and all other species will be gray
+    scale_colour_manual(values = c("red", "#A0A0A0"),
+                        labels = c(species_name, "Other species")) +            # Label your geom point legend
+    scale_size(range = c(2, 10), name = "DBH (mm)") +                           # Label your DBH legend
+    scale_x_continuous(limits = c(-5, 105), breaks = seq(0, 100, 20)) +         # Modify your inclusion criteria. Mine is larger than 100 x 100 to include all the trees surveyed
+    scale_y_continuous(limits = c(-5, 105), breaks = seq(0, 100, 20)) +
+    theme(panel.grid.minor.x = element_blank(),
+          panel.grid.minor.y = element_blank(),
+          panel.background = element_rect(fill = "white", color = "black"),    
+          panel.grid.major = element_line(color = "black")) +
+    labs(title = species_name, "in TEAM Plot 4",                                
+         x = "X (m)",
+         y = "Y (m)",
+         fill = "Species",
+         colour = "Species")
+  
+  
+##9. continuously paste a file name for the produced plot image 
+  #and save it into a new folder within the wd, mine is "ggplots4" the file name is "p4sp" 
+  #the first one produced will be "p4sp1"
+  file_name <- paste0("ggplots4/p4sp", i, ".jpg")
+  
+##10. the function ggsave will actually save the plot into the new folder, 
+  #with the appropriate dimensions
+  #** change the plot = " " to your own labeling system. mine was plot 4 (p4), yours may be p1 or p345, modify accordingly!!!
+  ggsave(file_name, plot = p4sp1, width = 12, height = 10, dpi = 300) 
+  
+  cat("\n===============================================================\n\n")
+}
+#===============================================================================
+#                               Troubleshooting 
+#===============================================================================
+#If you find that a package, such as ggplot2 is not working properly, 
+#try the below code
+update.packages("ggplot2")
+
+#If your labels are not generating properly, make sure the package "ggrepel" is
+#installed and the library is loaded.
+#All packages required for this code are listed at the top of the code. 
+
+#if your species colours in step 8 are not working, try removing the "!" from 
+#scientificName != species_name.
+
+#===============================================================================
